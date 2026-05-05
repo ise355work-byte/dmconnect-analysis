@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DM Connect 業績ダッシュボード</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;}
+
+  .header{
+    background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);
+    color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;
+  }
+  .header h1{font-size:22px;font-weight:700;letter-spacing:.5px;}
+  .header .subtitle{font-size:12px;color:#a0b0c8;margin-top:4px;}
+  .badge{background:rgba(255,200,50,.15);border:1px solid rgba(255,200,50,.4);color:#ffd166;font-size:11px;padding:4px 12px;border-radius:20px;}
+
+  .fy-tabs{background:#fff;border-bottom:2px solid #e8ecf0;padding:0 32px;display:flex;gap:4px;}
+  .fy-tab{padding:14px 32px;cursor:pointer;font-size:14px;font-weight:600;color:#6b7280;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;}
+  .fy-tab:hover{color:#0f3460;}
+  .fy-tab.active{color:#0f3460;border-bottom-color:#0f3460;}
+  .fy-tab .sub{font-size:10px;font-weight:400;color:#9ca3af;display:block;}
+
+  .container{max-width:1400px;margin:0 auto;padding:24px 32px;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+  .kpi{background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid #ccc;}
+  .kpi.blue{border-left-color:#3b82f6;} .kpi.green{border-left-color:#10b981;}
+  .kpi.red{border-left-color:#ef4444;}  .kpi.purple{border-left-color:#8b5cf6;}
+  .kpi-label{font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;}
+  .kpi-value{font-size:26px;font-weight:700;color:#1a1a2e;}
+  .kpi-value.neg{color:#ef4444;} .kpi-value.pos{color:#10b981;}
+  .kpi-unit{font-size:13px;font-weight:400;color:#9ca3af;}
+  .kpi-note{font-size:10px;color:#9ca3af;margin-top:4px;}
+
+  /* section divider */
+  .section-title{font-size:13px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin:28px 0 12px;padding-left:4px;border-left:3px solid #3b82f6;padding-left:10px;}
+
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+  .row-3{display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:20px;}
+  .row-full{margin-bottom:20px;}
+
+  .card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .card-title{font-size:15px;font-weight:700;color:#1a1a2e;margin-bottom:3px;}
+  .card-sub{font-size:11px;color:#9ca3af;margin-bottom:18px;}
+
+  canvas{max-height:300px;}
+
+  /* breakdown pill legend */
+  .pill-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+  .pill{display:flex;align-items:center;gap:6px;font-size:11px;color:#4b5563;
+        background:#f8f9fa;border-radius:20px;padding:4px 10px;}
+  .pill-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
+  /* partner cards */
+  .partner-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .p-card{background:#f8f9fa;border-radius:10px;padding:14px 18px;border:2px solid transparent;transition:.15s;}
+  .p-card:hover{border-color:#3b82f6;background:#fff;}
+  .p-name{font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .p-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+  .p-rev{font-size:19px;font-weight:700;color:#0f3460;}
+  .p-pnl{font-size:11px;margin-top:3px;}
+  .p-bar{height:3px;background:#e8ecf0;border-radius:2px;margin-top:10px;}
+  .p-fill{height:3px;border-radius:2px;transition:width .4s;}
+
+  /* comparison bar */
+  .compare-strip{background:#fff;border-radius:12px;padding:20px 28px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);
+    display:grid;grid-template-columns:1fr 4px 1fr;gap:0;align-items:center;}
+  .comp-col{text-align:center;padding:8px 20px;}
+  .comp-year{font-size:11px;font-weight:700;color:#6b7280;letter-spacing:1px;margin-bottom:10px;}
+  .comp-rev{font-size:30px;font-weight:800;color:#0f3460;}
+  .comp-pnl{font-size:13px;margin-top:6px;font-weight:600;}
+  .comp-div{width:1px;background:#e8ecf0;height:60px;margin:0 auto;}
+
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>📊 DM Connect 業績ダッシュボード</h1>
+    <div class="subtitle">売上内訳・損益の月次推移 ／ 取引先別分析　｜　出典：新規事業_台帳管理_20260406.xlsx</div>
+  </div>
+  <div class="badge">税別・円単位</div>
+</div>
+
+<div class="fy-tabs">
+  <div class="fy-tab active" onclick="switchFY('fy24')" id="tab-fy24">
+    2024年度 (FY24)
+    <span class="sub">2024年4月〜2025年3月　月次</span>
+  </div>
+  <div class="fy-tab" onclick="switchFY('fy25')" id="tab-fy25">
+    2025年度 (FY25)
+    <span class="sub">2025年4月〜2026年3月　月次</span>
+  </div>
+</div>
+
+<!-- ========== FY24 ========== -->
+<div class="tab-content active" id="content-fy24">
+<div class="container">
+
+  <div class="kpi-grid">
+    <div class="kpi blue">
+      <div class="kpi-label">年間売上合計</div>
+      <div class="kpi-value">5,850 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">印刷＋利用料＋郵券代</div>
+    </div>
+    <div class="kpi blue" style="border-left-color:#06b6d4;">
+      <div class="kpi-label">うち 印刷売上</div>
+      <div class="kpi-value" style="font-size:22px;color:#0891b2;">1,010 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全体の 17.3%</div>
+    </div>
+    <div class="kpi blue" style="border-left-color:#8b5cf6;">
+      <div class="kpi-label">うち 利用料</div>
+      <div class="kpi-value" style="font-size:22px;color:#7c3aed;">2,069 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全体の 35.4%</div>
+    </div>
+    <div class="kpi blue" style="border-left-color:#10b981;">
+      <div class="kpi-label">うち 郵券代</div>
+      <div class="kpi-value" style="font-size:22px;color:#059669;">2,770 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全体の 47.4%</div>
+    </div>
+  </div>
+  <div class="kpi-grid" style="margin-top:-8px;">
+    <div class="kpi red">
+      <div class="kpi-label">全体損益</div>
+      <div class="kpi-value neg">▲2,614 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">固定費・変動費控除後</div>
+    </div>
+    <div class="kpi" style="border-left-color:#f59e0b;">
+      <div class="kpi-label">最大取引先（売上）</div>
+      <div class="kpi-value" style="font-size:18px;">エンバーポイント</div>
+      <div class="kpi-note">1,507万円（25.8%）</div>
+    </div>
+    <div class="kpi" style="border-left-color:#6b7280;">
+      <div class="kpi-label">月平均売上</div>
+      <div class="kpi-value">487 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全12ヶ月平均</div>
+    </div>
+    <div class="kpi" style="border-left-color:#ef4444;">
+      <div class="kpi-label">月平均損益</div>
+      <div class="kpi-value neg" style="font-size:22px;">▲218 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">3月のみ黒字</div>
+    </div>
+  </div>
+
+  <div class="section-title">💹 売上カテゴリ内訳</div>
+  <div class="row-3">
+    <div class="card">
+      <div class="card-title">月次売上内訳（印刷 / 利用料 / 郵券代）</div>
+      <div class="card-sub">FY24　単位：万円　積み上げ棒グラフ</div>
+      <canvas id="fy24-cat-stacked"></canvas>
+      <div class="pill-legend">
+        <div class="pill"><div class="pill-dot" style="background:#06b6d4;"></div>印刷売上</div>
+        <div class="pill"><div class="pill-dot" style="background:#8b5cf6;"></div>利用料（SMP・DM Publisher・手数料・作業費）</div>
+        <div class="pill"><div class="pill-dot" style="background:#10b981;"></div>郵券代売上</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">売上カテゴリ構成（年間）</div>
+      <div class="card-sub">FY24 年間合計：5,850万円</div>
+      <canvas id="fy24-cat-donut"></canvas>
+    </div>
+  </div>
+
+  <div class="row-2">
+    <div class="card">
+      <div class="card-title">利用料の内訳（月次）</div>
+      <div class="card-sub">SMP利用料 / DM Publisher利用料 / 手数料 / 作業費　単位：万円</div>
+      <canvas id="fy24-usage-detail"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">FY24 vs FY25 売上カテゴリ比較</div>
+      <div class="card-sub">年間合計の内訳比較　単位：万円</div>
+      <canvas id="cat-compare"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title">🏢 取引先別分析</div>
+  <div class="row-3">
+    <div class="card">
+      <div class="card-title">月次売上推移（取引先別積み上げ）</div>
+      <div class="card-sub">FY24　単位：万円</div>
+      <canvas id="fy24-partner-stacked"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">取引先別構成（年間）</div>
+      <div class="card-sub">FY24 合計：5,850万円</div>
+      <canvas id="fy24-partner-donut"></canvas>
+    </div>
+  </div>
+  <div class="row-2">
+    <div class="card">
+      <div class="card-title">月次損益推移（全体）</div>
+      <div class="card-sub">粗利 / 損益（左軸）　固定費・原価（右軸）　単位：万円</div>
+      <canvas id="fy24-pnl"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">取引先別損益推移</div>
+      <div class="card-sub">単位：万円　※表示範囲外の値はツールチップで確認</div>
+      <canvas id="fy24-pnl-partner"></canvas>
+    </div>
+  </div>
+  <div class="row-full card">
+    <div class="card-title" style="margin-bottom:3px;">取引先別サマリー (FY24)</div>
+    <div class="card-sub">年間売上・損益</div>
+    <div id="fy24-partner-grid" class="partner-grid"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ========== FY25 ========== -->
+<div class="tab-content" id="content-fy25">
+<div class="container">
+
+  <div class="kpi-grid">
+    <div class="kpi blue">
+      <div class="kpi-label">年間売上合計</div>
+      <div class="kpi-value">9,233 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">FY24比 +57.8%</div>
+    </div>
+    <div class="kpi blue" style="border-left-color:#06b6d4;">
+      <div class="kpi-label">うち 印刷売上</div>
+      <div class="kpi-value" style="font-size:22px;color:#0891b2;">1,382 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全体の 15.0%</div>
+    </div>
+    <div class="kpi blue" style="border-left-color:#8b5cf6;">
+      <div class="kpi-label">うち 利用料</div>
+      <div class="kpi-value" style="font-size:22px;color:#7c3aed;">3,733 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全体の 40.4%</div>
+    </div>
+    <div class="kpi blue" style="border-left-color:#10b981;">
+      <div class="kpi-label">うち 郵券代</div>
+      <div class="kpi-value" style="font-size:22px;color:#059669;">4,119 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全体の 44.6%</div>
+    </div>
+  </div>
+  <div class="kpi-grid" style="margin-top:-8px;">
+    <div class="kpi red">
+      <div class="kpi-label">全体損益</div>
+      <div class="kpi-value neg">▲1,693 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">FY24比 改善 +921万円</div>
+    </div>
+    <div class="kpi" style="border-left-color:#f59e0b;">
+      <div class="kpi-label">最大取引先（売上）</div>
+      <div class="kpi-value" style="font-size:18px;">シャノン</div>
+      <div class="kpi-note">2,997万円（32.5%）</div>
+    </div>
+    <div class="kpi" style="border-left-color:#6b7280;">
+      <div class="kpi-label">月平均売上</div>
+      <div class="kpi-value">769 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">全12ヶ月平均</div>
+    </div>
+    <div class="kpi" style="border-left-color:#ef4444;">
+      <div class="kpi-label">月平均損益</div>
+      <div class="kpi-value neg" style="font-size:22px;">▲141 <span class="kpi-unit">万円</span></div>
+      <div class="kpi-note">3月のみ黒字</div>
+    </div>
+  </div>
+
+  <div class="section-title">💹 売上カテゴリ内訳</div>
+  <div class="row-3">
+    <div class="card">
+      <div class="card-title">月次売上内訳（印刷 / 利用料 / 郵券代）</div>
+      <div class="card-sub">FY25　単位：万円　積み上げ棒グラフ</div>
+      <canvas id="fy25-cat-stacked"></canvas>
+      <div class="pill-legend">
+        <div class="pill"><div class="pill-dot" style="background:#06b6d4;"></div>印刷売上</div>
+        <div class="pill"><div class="pill-dot" style="background:#8b5cf6;"></div>利用料（SMP・DM Publisher・手数料・作業費）</div>
+        <div class="pill"><div class="pill-dot" style="background:#10b981;"></div>郵券代売上</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">売上カテゴリ構成（年間）</div>
+      <div class="card-sub">FY25 年間合計：9,233万円</div>
+      <canvas id="fy25-cat-donut"></canvas>
+    </div>
+  </div>
+
+  <div class="row-2">
+    <div class="card">
+      <div class="card-title">利用料の内訳（月次）</div>
+      <div class="card-sub">SMP利用料 / DM Publisher利用料 / 手数料 / 作業費　単位：万円</div>
+      <canvas id="fy25-usage-detail"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">FY24 vs FY25 売上カテゴリ比較</div>
+      <div class="card-sub">年間合計の内訳比較　単位：万円</div>
+      <canvas id="cat-compare2"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title">🏢 取引先別分析</div>
+  <div class="row-3">
+    <div class="card">
+      <div class="card-title">月次売上推移（取引先別積み上げ）</div>
+      <div class="card-sub">FY25　単位：万円</div>
+      <canvas id="fy25-partner-stacked"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">取引先別構成（年間）</div>
+      <div class="card-sub">FY25 合計：9,233万円</div>
+      <canvas id="fy25-partner-donut"></canvas>
+    </div>
+  </div>
+  <div class="row-2">
+    <div class="card">
+      <div class="card-title">月次損益推移（全体）</div>
+      <div class="card-sub">粗利 / 損益（左軸）　固定費・原価（右軸）　単位：万円</div>
+      <canvas id="fy25-pnl"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">取引先別損益推移</div>
+      <div class="card-sub">単位：万円　※表示範囲外の値はツールチップで確認</div>
+      <canvas id="fy25-pnl-partner"></canvas>
+    </div>
+  </div>
+  <div class="row-full card">
+    <div class="card-title" style="margin-bottom:3px;">取引先別サマリー (FY25)</div>
+    <div class="card-sub">年間売上・損益</div>
+    <div id="fy25-partner-grid" class="partner-grid"></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ============ DATA ============
+const M = ['4月','5月','6月','7月','8月','9月','10月','11月','12月','1月','2月','3月'];
+const PC = {
+  'シャノン':'#3b82f6','エンバーポイント':'#10b981','セブンペイメント':'#f59e0b',
+  'ベースフード':'#8b5cf6','楽天アジア':'#ec4899','LM':'#06b6d4',
+  '広川町':'#84cc16','イー・エージェンシー':'#f97316'
+};
+
+const D = {
+  fy24: {
+    print_rev:   [938050,929402,967111,926547,722977,923932,713849,667874,631332,782879,725597,1173566],
+    usage_smp:   [237450,387300,202200,220350,198150,238800,208462,276695,303201,500738,266487,259145],
+    usage_dmp:   [1851240,1839355,2117186,2072793,1756721,1119452,1229789,686558,1343513,882183,1066581,205062],
+    usage_fee:   [14197,12722,23747,13418,11711,15411,10209,14632,16051,25658,13483,14493],
+    usage_work:  [28500,52850,68500,28500,28973,623500,28500,29045,0,28845,28500,90600],
+    usage_total: [2131387,2292227,2411633,2335061,1995555,1997163,1476960,1006930,1662765,1437424,1375051,569300],
+    postage_rev: [2211537,2356957,2561878,2775862,2025145,2384635,2063512,1607417,2293151,2509391,1872953,3039496],
+    rev_total:   [5280974,5578586,5940622,6037470,4743677,5305730,4254321,3282221,4587248,4729694,3973601,4782362],
+    pnl_total:   [-2600190,-2375088,-2760931,-2624082,-2427060,-2508555,-2165406,-2029568,-2267261,-2277975,-1963453,-1145989],
+    rev_partner: {
+      'シャノン':         [1386272,1542628,1539028,1570019,1199396,1330283,1184609,875680,1160819,1253234,1017826,1263737],
+      'エンバーポイント': [1637794,1787441,1923705,1883855,1455408,1636898,1304019,993813,1367898,1454085,1183948,1444533],
+      'セブンペイメント':  [251647,400022,225947,416052,376534,493060,272892,259396,355085,396521,270866,766688],
+      'ベースフード':     [1851240,1839355,2117186,1952720,1484800,1663080,1298880,999600,1512000,1509260,1260000,1662312],
+      'LM':               [152510,5850,130132,165290,82068,130131,96968,78648,130131,78648,192975,190549],
+      'イー・エージェンシー':[1511,3290,4624,4054,3671,3278,2353,1934,3115,2946,2986,5443],
+    },
+    pnl_partner: {
+      'シャノン':         [161367,109915,314941,120736,37068,125898,71618,-18527,68600,-8793,112399,214909],
+      'エンバーポイント': [52686,87314,96000,61695,22843,57099,46011,5952,41718,49083,17565,391494],
+      'セブンペイメント':  [-183297,12735,-238374,-47476,-127416,-149006,-70872,-68444,-97609,-111047,-84956,166308],
+      'ベースフード':     [103418,89790,101454,100806,84280,65623,50280,31708,54169,38397,50719,15119],
+    },
+    gross_total: [389217,545543,427419,457382,423040,702677,268680,317158,110823,438194,338832,466208],
+    varco_total: [4891757,5033043,5513203,5580088,4320637,4603053,3985641,2965063,4476425,4291500,3634769,4316154],
+    fixco_total: [2989407,2920631,3188350,3701550,2413534,2330925,2399579,2288850,2179578,2214639,2209373,2194610],
+    annual:{rev:58496506,pnl:-26145853,print:10103116,usage:20691456,postage:27701934},
+  },
+  fy25: {
+    print_rev:   [688424,1023627,1535398,1183857,1096916,699329,1163383,729443,1302871,986049,818075,2588561],
+    usage_smp:   [236937,1359151,1801117,648130,380389,339915,599775,404029,301768,341347,259503,5740043],
+    usage_dmp:   [896576,3106349,3908313,1975788,1981490,231466,3077574,1520422,2207027,2157971,380569,1657889],
+    usage_fee:   [11943,13186,117819,31231,22078,18008,26817,24934,15810,17062,13826,298462],
+    usage_work:  [70500,28500,45600,28500,358500,45600,135500,28500,45600,32000,338500,45600],
+    usage_total: [1215956,4507186,5872849,2683649,2742457,634989,3839666,1977885,2570205,2548380,992398,7741994],
+    postage_rev: [1697884,3691952,5184903,3859416,3887050,1532920,3447461,2251827,4581191,3443390,2265386,5344631],
+    rev_total:   [3602264,9222765,12593150,7726922,7726423,2867238,8450510,4959155,8454267,6977819,4075859,15675186],
+    pnl_total:   [-1907237,-991469,-2660472,-1712259,-1604390,-1849102,-1683533,-2064374,-1712829,-2767877,-778236,2804640],
+    rev_partner: {
+      'シャノン':         [1665803,1865184,3120445,3266670,2291143,1747103,1852019,1622414,1649873,1989149,3111169,5785359],
+      'エンバーポイント': [789589,2874213,3641100,1800530,1877895,527150,2823512,1363765,4027404,2469130,307963,1746044],
+      'セブンペイメント':  [248880,1372337,1918936,679361,402467,357923,626592,428963,317578,358409,273329,6038505],
+      'ベースフード':     [896576,3106349,3908313,1975788,1981490,231466,3144574,1520422,2207027,2157971,380569,1657889],
+      '楽天アジア':       [0,0,0,0,0,0,0,19016,248901,0,0,0],
+      'LM':               [0,0,0,0,0,0,0,0,0,0,0,441075],
+      '広川町':           [0,0,0,0,1168636,0,0,0,0,0,0,0],
+      'イー・エージェンシー':[1416,4682,4356,4573,4792,3596,3813,4575,3484,3160,2829,6314],
+    },
+    pnl_partner: {
+      'シャノン':         [167375,-132450,781234,206808,406385,222533,204006,147058,183088,-787278,1359305,1342788],
+      'エンバーポイント': [32031,111151,140907,67376,69803,14458,182791,39453,119276,88105,7833,56277],
+      'セブンペイメント':  [-146700,974547,-397134,-49249,-158353,-128267,-21098,-184217,-128322,-110441,-136191,3502115],
+      'ベースフード':     [40799,116842,145679,81390,80158,19298,173112,70735,98761,84018,22020,70895],
+    },
+    gross_total: [289791,1268549,868026,504279,743463,326488,736402,281773,483549,-528359,1450865,5189555],
+    varco_total: [3312473,7954216,11725124,7222643,6982960,2540750,7714108,4677382,7970718,7506178,2624994,10485631],
+    fixco_total: [2197028,2260018,3528498,2216538,2347853,2175590,2419935,2346147,2196378,2239518,2229101,2384915],
+    annual:{rev:92331558,pnl:-16927138,print:13815933,usage:37327614,postage:41188011},
+  }
+};
+
+// ============ HELPERS ============
+const m = v => Math.round(v/10000);
+const ma = a => a.map(m);
+const sum = a => a.reduce((s,v)=>s+v,0);
+
+function barChart(id, labels, datasets, opts={}) {
+  return new Chart(document.getElementById(id), {
+    type:'bar', data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{display:opts.legend||false}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}：${c.raw.toLocaleString()}万円`}}},
+      scales:{
+        x:{stacked:true, grid:{display:false}, ticks:{font:{size:10}}},
+        y:{stacked:true, grid:{color:'#f0f0f0'}, ticks:{callback:v=>v+'万', font:{size:10}}}
+      }
+    }
+  });
+}
+
+function lineChart(id, labels, datasets, opts={}) {
+  return new Chart(document.getElementById(id), {
+    type:'line', data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{position:'bottom', labels:{font:{size:10},boxWidth:12}}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}：${c.raw.toLocaleString()}万円`}}},
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{size:10}}},
+        y:{grid:{color:'#f0f0f0'}, ticks:{callback:v=>v+'万', font:{size:10}}, ...(opts.yAxis||{})}
+      }
+    }
+  });
+}
+
+function donut(id, labels, vals, colors) {
+  return new Chart(document.getElementById(id), {
+    type:'doughnut',
+    data:{labels, datasets:[{data:vals.map(m), backgroundColor:colors, borderWidth:2, borderColor:'#fff'}]},
+    options:{responsive:true, maintainAspectRatio:true, plugins:{legend:{position:'bottom', labels:{font:{size:10},boxWidth:10}}, tooltip:{callbacks:{label:c=>` ${c.label}：${c.raw.toLocaleString()}万円`}}}}
+  });
+}
+
+function pnlComboChart(id, pnl, gross, varco) {
+  return new Chart(document.getElementById(id), {
+    data: {
+      labels: M,
+      datasets: [
+        {
+          type:'bar', label:'固定費（原価）',
+          data: ma(varco),
+          backgroundColor:'rgba(251,146,60,0.35)',
+          borderColor:'rgba(251,146,60,0.7)',
+          borderWidth:1, borderRadius:2,
+          yAxisID:'y1', order:3,
+        },
+        {
+          type:'line', label:'粗利',
+          data: ma(gross),
+          borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)',
+          fill:false, tension:.3, borderWidth:2.5, pointRadius:4,
+          yAxisID:'y', order:1,
+        },
+        {
+          type:'line', label:'損益（純）',
+          data: ma(pnl),
+          borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.08)',
+          fill:true, tension:.3, borderWidth:2, pointRadius:4,
+          yAxisID:'y', order:2,
+        },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{
+        legend:{position:'bottom', labels:{font:{size:10}, boxWidth:12}},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label}：${c.raw.toLocaleString()}万円`}}
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{size:10}}},
+        y:{
+          position:'left',
+          grid:{color:'#f0f0f0'},
+          ticks:{callback:v=>v+'万', font:{size:10}},
+          title:{display:true, text:'粗利・損益 (万円)', font:{size:9}, color:'#6b7280'}
+        },
+        y1:{
+          position:'right',
+          grid:{drawOnChartArea:false},
+          ticks:{callback:v=>v+'万', font:{size:10}},
+          title:{display:true, text:'固定費 (万円)', font:{size:9}, color:'#6b7280'}
+        }
+      }
+    }
+  });
+}
+
+function buildPartnerGrid(containerId, rp, pp, maxRev) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  Object.entries(rp).forEach(([n,v])=>{
+    const rev=sum(v); const pnl=pp[n]?sum(pp[n]):null;
+    const pct=rev/maxRev*100;
+    const c=document.createElement('div'); c.className='p-card';
+    c.innerHTML=`<div class="p-name"><span class="p-dot" style="background:${PC[n]||'#999'};"></span>${n}</div>
+      <div class="p-rev">${m(rev).toLocaleString()} <span style="font-size:12px;color:#9ca3af;font-weight:400;">万円</span></div>
+      ${pnl!==null?`<div class="p-pnl" style="color:${pnl>=0?'#10b981':'#ef4444'};">${pnl>=0?'▲':'▲'.replace('▲','●')} 損益 ${m(pnl).toLocaleString()}万円</div>`:''}
+      <div class="p-bar"><div class="p-fill" style="width:${Math.min(pct,100)}%;background:${PC[n]||'#3b82f6'};"></div></div>`;
+    el.appendChild(c);
+  });
+}
+
+// ============ BUILD CHARTS ============
+window.addEventListener('load', () => {
+
+  // ---- FY24 ----
+  const d4 = D.fy24;
+  // Category stacked
+  barChart('fy24-cat-stacked', M, [
+    {label:'印刷売上',    data:ma(d4.print_rev),   backgroundColor:'#06b6d4', borderRadius:2},
+    {label:'利用料',      data:ma(d4.usage_total), backgroundColor:'#8b5cf6', borderRadius:2},
+    {label:'郵券代売上',  data:ma(d4.postage_rev), backgroundColor:'#10b981', borderRadius:2},
+  ]);
+  donut('fy24-cat-donut',
+    ['印刷売上','利用料','郵券代'],
+    [d4.annual.print, d4.annual.usage, d4.annual.postage],
+    ['#06b6d4','#8b5cf6','#10b981']
+  );
+  // Usage detail
+  barChart('fy24-usage-detail', M, [
+    {label:'SMP利用料',          data:ma(d4.usage_smp),  backgroundColor:'#6366f1'},
+    {label:'DM Publisher利用料', data:ma(d4.usage_dmp),  backgroundColor:'#a78bfa'},
+    {label:'手数料（マージン）', data:ma(d4.usage_fee),  backgroundColor:'#c4b5fd'},
+    {label:'作業費',             data:ma(d4.usage_work), backgroundColor:'#ddd6fe'},
+  ], {legend:false});
+
+  // Partner stacked
+  barChart('fy24-partner-stacked', M,
+    Object.entries(d4.rev_partner).map(([n,v])=>({label:n, data:ma(v), backgroundColor:PC[n]||'#aaa', borderRadius:2}))
+  );
+  donut('fy24-partner-donut',
+    Object.keys(d4.rev_partner),
+    Object.values(d4.rev_partner).map(v=>sum(v)),
+    Object.keys(d4.rev_partner).map(k=>PC[k]||'#aaa')
+  );
+  pnlComboChart('fy24-pnl', d4.pnl_total, d4.gross_total, d4.fixco_total);
+  lineChart('fy24-pnl-partner', M, [
+    {label:'シャノン',         data:ma(d4.pnl_partner['シャノン']),         borderColor:'#3b82f6', tension:.3, borderWidth:2, pointRadius:3},
+    {label:'エンバーポイント', data:ma(d4.pnl_partner['エンバーポイント']), borderColor:'#10b981', tension:.3, borderWidth:2, pointRadius:3},
+    {label:'セブンペイメント', data:ma(d4.pnl_partner['セブンペイメント']), borderColor:'#f59e0b', tension:.3, borderWidth:2, pointRadius:3},
+    {label:'ベースフード',     data:ma(d4.pnl_partner['ベースフード']),     borderColor:'#8b5cf6', tension:.3, borderWidth:2, pointRadius:3},
+  ], {yAxis:{min:-50, max:80}});
+  buildPartnerGrid('fy24-partner-grid', d4.rev_partner, d4.pnl_partner, d4.annual.rev);
+
+  // ---- FY25 ----
+  const d5 = D.fy25;
+  barChart('fy25-cat-stacked', M, [
+    {label:'印刷売上',    data:ma(d5.print_rev),   backgroundColor:'#06b6d4', borderRadius:2},
+    {label:'利用料',      data:ma(d5.usage_total), backgroundColor:'#8b5cf6', borderRadius:2},
+    {label:'郵券代売上',  data:ma(d5.postage_rev), backgroundColor:'#10b981', borderRadius:2},
+  ]);
+  donut('fy25-cat-donut',
+    ['印刷売上','利用料','郵券代'],
+    [d5.annual.print, d5.annual.usage, d5.annual.postage],
+    ['#06b6d4','#8b5cf6','#10b981']
+  );
+  barChart('fy25-usage-detail', M, [
+    {label:'SMP利用料',          data:ma(d5.usage_smp),  backgroundColor:'#6366f1'},
+    {label:'DM Publisher利用料', data:ma(d5.usage_dmp),  backgroundColor:'#a78bfa'},
+    {label:'手数料（マージン）', data:ma(d5.usage_fee),  backgroundColor:'#c4b5fd'},
+    {label:'作業費',             data:ma(d5.usage_work), backgroundColor:'#ddd6fe'},
+  ], {legend:false});
+
+  barChart('fy25-partner-stacked', M,
+    Object.entries(d5.rev_partner).map(([n,v])=>({label:n, data:ma(v), backgroundColor:PC[n]||'#aaa', borderRadius:2}))
+  );
+  donut('fy25-partner-donut',
+    Object.keys(d5.rev_partner),
+    Object.values(d5.rev_partner).map(v=>sum(v)),
+    Object.keys(d5.rev_partner).map(k=>PC[k]||'#aaa')
+  );
+  pnlComboChart('fy25-pnl', d5.pnl_total, d5.gross_total, d5.fixco_total);
+  lineChart('fy25-pnl-partner', M, [
+    {label:'シャノン',         data:ma(d5.pnl_partner['シャノン']),         borderColor:'#3b82f6', tension:.3, borderWidth:2, pointRadius:3},
+    {label:'エンバーポイント', data:ma(d5.pnl_partner['エンバーポイント']), borderColor:'#10b981', tension:.3, borderWidth:2, pointRadius:3},
+    {label:'セブンペイメント', data:ma(d5.pnl_partner['セブンペイメント']), borderColor:'#f59e0b', tension:.3, borderWidth:2, pointRadius:3},
+    {label:'ベースフード',     data:ma(d5.pnl_partner['ベースフード']),     borderColor:'#8b5cf6', tension:.3, borderWidth:2, pointRadius:3},
+  ], {yAxis:{min:-100, max:200}});
+  buildPartnerGrid('fy25-partner-grid', d5.rev_partner, d5.pnl_partner, d5.annual.rev);
+
+  // ---- FY24 vs FY25 比較 (shared chart) ----
+  function buildCompare(id) {
+    new Chart(document.getElementById(id), {
+      type:'bar',
+      data:{
+        labels:['印刷売上','利用料','郵券代'],
+        datasets:[
+          {label:'FY24', data:[m(d4.annual.print),m(d4.annual.usage),m(d4.annual.postage)], backgroundColor:'rgba(59,130,246,.7)', borderRadius:6},
+          {label:'FY25', data:[m(d5.annual.print),m(d5.annual.usage),m(d5.annual.postage)], backgroundColor:'rgba(16,185,129,.7)', borderRadius:6},
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:true,
+        plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}：${c.raw.toLocaleString()}万円`}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:11}}}, y:{grid:{color:'#f0f0f0'},ticks:{callback:v=>v+'万',font:{size:10}}}}
+      }
+    });
+  }
+  buildCompare('cat-compare');
+  buildCompare('cat-compare2');
+});
+
+// ============ TAB ============
+function switchFY(fy) {
+  document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.fy-tab').forEach(e=>e.classList.remove('active'));
+  document.getElementById('content-'+fy).classList.add('active');
+  document.getElementById('tab-'+fy).classList.add('active');
+}
+</script>
+</body>
+</html>

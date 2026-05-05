@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMConnect | トリガー型DM自動化サービス</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red: #C8002F;
+      --red-dark: #A00025;
+      --red-light: #fff0f3;
+      --navy: #1a2744;
+      --navy-dark: #0d1a3a;
+      --white: #ffffff;
+      --gray-light: #f6f7f9;
+      --gray-mid: #e4e6ea;
+      --gray-text: #5a6270;
+      --font: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); color: #222; line-height: 1.75; background: var(--white); overflow-x: hidden; }
+
+    /* ===== SCROLL REVEAL ===== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+    }
+    .reveal.from-left  { transform: translateX(-40px); }
+    .reveal.from-right { transform: translateX(40px); }
+    .reveal.scale-in   { transform: scale(0.92); }
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+
+    /* ===== HEADER ===== */
+    header {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(12px);
+      border-bottom: 3px solid var(--red);
+      padding: 0 48px;
+      height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 1000;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.07);
+      transition: box-shadow 0.3s;
+    }
+    header.scrolled { box-shadow: 0 4px 32px rgba(0,0,0,0.12); }
+    .logo { font-size: 22px; font-weight: 900; color: var(--red); letter-spacing: 1px; text-decoration: none; }
+    .logo span { color: var(--navy); }
+    nav { display: flex; align-items: center; gap: 6px; }
+    nav a {
+      font-size: 13px; color: #444; text-decoration: none;
+      padding: 8px 14px; border-radius: 6px; font-weight: 600;
+      transition: background 0.2s, color 0.2s;
+    }
+    nav a:hover { background: var(--gray-light); color: var(--navy); }
+    .nav-doc {
+      border: 2px solid var(--navy); color: var(--navy) !important;
+      border-radius: 6px;
+    }
+    .nav-doc:hover { background: var(--navy) !important; color: var(--white) !important; }
+    .nav-cta {
+      background: var(--red) !important; color: var(--white) !important;
+      border-radius: 6px; margin-left: 4px;
+    }
+    .nav-cta:hover { background: var(--red-dark) !important; }
+
+    /* ===== PROGRESS BAR ===== */
+    #progress-bar {
+      position: fixed; top: 68px; left: 0;
+      height: 3px; background: var(--red);
+      width: 0%; z-index: 999;
+      transition: width 0.1s linear;
+    }
+
+    /* ===== HERO ===== */
+    #hero {
+      margin-top: 68px;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dark) 60%, #0a1428 100%);
+      color: var(--white);
+      padding: 110px 48px 90px;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 64px;
+      align-items: center;
+      min-height: 600px;
+      position: relative;
+      overflow: hidden;
+    }
+    #hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 70% 50%, rgba(200,0,47,0.12) 0%, transparent 60%);
+
+    }
+    #hero::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 0; right: 0;
+      height: 60px;
+      background: var(--white);
+      clip-path: ellipse(55% 100% at 50% 100%);
+    }
+    .hero-content { position: relative; z-index: 1; }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(200,0,47,0.25); border: 1px solid rgba(200,0,47,0.5);
+      color: #ff8099; font-size: 12px; font-weight: 700;
+      padding: 5px 14px; border-radius: 20px; margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+    .hero-tag::before { content: '●'; font-size: 7px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    h1.hero-title {
+      font-size: 50px; font-weight: 900; line-height: 1.2;
+      margin-bottom: 28px; letter-spacing: -0.5px;
+    }
+    h1.hero-title em { font-style: normal; color: var(--red); }
+    .hero-sub {
+      font-size: 17px; color: rgba(255,255,255,0.78);
+      line-height: 1.85; margin-bottom: 40px;
+    }
+    .hero-cta-group { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .btn { display: inline-block; font-weight: 700; text-decoration: none; border-radius: 6px; transition: all 0.2s var(--ease); cursor: pointer; border: none; font-family: var(--font); }
+    .btn-red {
+      background: var(--red); color: var(--white);
+      padding: 16px 36px; font-size: 16px;
+      box-shadow: 0 6px 20px rgba(200,0,47,0.4);
+    }
+    .btn-red:hover { background: var(--red-dark); transform: translateY(-2px); box-shadow: 0 10px 28px rgba(200,0,47,0.45); }
+    .btn-outline-white {
+      border: 2px solid rgba(255,255,255,0.45); color: var(--white);
+      padding: 14px 28px; font-size: 15px;
+    }
+    .btn-outline-white:hover { border-color: var(--white); background: rgba(255,255,255,0.08); }
+    .hero-note { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 8px; }
+    .hero-stats { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 16px; }
+    .stat-card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px; padding: 22px 24px;
+      display: flex; align-items: center; gap: 18px;
+      backdrop-filter: blur(8px);
+      transition: background 0.3s, transform 0.3s;
+    }
+    .stat-card:hover { background: rgba(255,255,255,0.12); transform: translateX(6px); }
+    .stat-icon {
+      width: 50px; height: 50px; border-radius: 12px;
+      background: var(--red); display: flex; align-items: center;
+      justify-content: center; font-size: 22px; flex-shrink: 0;
+    }
+    .stat-num { font-size: 26px; font-weight: 900; color: var(--white); line-height: 1; }
+    .stat-label { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+
+    /* ===== SECTION BASE ===== */
+    section { padding: 96px 48px; }
+    .inner { max-width: 1080px; margin: 0 auto; }
+    .sec-label {
+      font-size: 11px; font-weight: 800; color: var(--red);
+      letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px;
+    }
+    h2.sec-title {
+      font-size: 36px; font-weight: 900; color: var(--navy);
+      line-height: 1.3; margin-bottom: 16px;
+    }
+    .sec-desc { font-size: 16px; color: var(--gray-text); margin-bottom: 56px; max-width: 600px; }
+
+    /* ===== PROBLEM ===== */
+    #problem { background: var(--gray-light); }
+    .compare-wrap {
+      display: grid; grid-template-columns: 1fr 56px 1fr; gap: 0; align-items: stretch;
+    }
+    .comp-col {
+      background: var(--white); border-radius: 16px; padding: 36px 32px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    }
+    .comp-col.good { border-top: 5px solid var(--red); }
+    .comp-col.bad  { border-top: 5px solid var(--gray-mid); }
+    .comp-head { font-size: 17px; font-weight: 800; margin-bottom: 28px; display: flex; align-items: center; gap: 10px; }
+    .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+    .tag-red { background: var(--red-light); color: var(--red); }
+    .tag-gray { background: #eee; color: #888; }
+    .comp-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; font-size: 15px; line-height: 1.6; }
+    .comp-item .ic { flex-shrink: 0; margin-top: 2px; }
+    .comp-item strong { color: var(--navy); }
+    .comp-num { font-size: 44px; font-weight: 900; color: var(--red); line-height: 1; margin-top: 24px; }
+    .comp-num-label { font-size: 13px; color: var(--gray-text); margin-top: 4px; }
+    .vs-circle {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: #fff0f3; color: var(--red); font-size: 13px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      align-self: center; margin: auto;
+      box-shadow: 0 2px 8px rgba(200,0,47,0.15);
+    }
+    .conclusion-bar {
+      margin-top: 36px; background: var(--navy); color: var(--white);
+      border-radius: 12px; padding: 28px 40px; text-align: center;
+      font-size: 19px; font-weight: 700; line-height: 1.6;
+    }
+    .conclusion-bar span { color: var(--red); }
+
+    /* ===== SOLUTION ===== */
+    #solution { background: var(--white); }
+    .solution-def {
+      background: linear-gradient(135deg, var(--navy), var(--navy-dark));
+      color: var(--white); border-radius: 18px; padding: 44px 52px;
+      font-size: 21px; font-weight: 700; line-height: 1.7;
+      margin-bottom: 56px; position: relative; overflow: hidden;
+    }
+    .solution-def::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--red); }
+    .solution-def::after {
+      content: '"'; position: absolute; right: 40px; bottom: -20px;
+      font-size: 160px; color: rgba(255,255,255,0.04); font-family: Georgia, serif; line-height: 1;
+    }
+    .solution-def em { color: #ff8099; font-style: normal; }
+    .features { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; margin-bottom: 44px; }
+    .feat {
+      border: 1.5px solid var(--gray-mid); border-radius: 14px; padding: 34px 28px;
+      position: relative; overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+    .feat::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--red-light), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .feat:hover { border-color: var(--red); box-shadow: 0 8px 32px rgba(200,0,47,0.12); transform: translateY(-5px); }
+    .feat:hover::before { opacity: 1; }
+    .feat-num {
+      width: 42px; height: 42px; border-radius: 10px; background: var(--red);
+      color: var(--white); font-size: 18px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 18px; position: relative;
+    }
+    .feat-title { font-size: 18px; font-weight: 800; color: var(--navy); margin-bottom: 10px; position: relative; }
+    .feat-desc { font-size: 14px; color: var(--gray-text); line-height: 1.75; position: relative; }
+    .badges { display: flex; gap: 14px; flex-wrap: wrap; }
+    .badge-item {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--gray-light); border-radius: 8px;
+      padding: 10px 18px; font-size: 14px; font-weight: 700; color: var(--navy);
+      border: 1px solid var(--gray-mid);
+    }
+    .badge-dot { width: 8px; height: 8px; background: var(--red); border-radius: 50%; }
+
+    /* ===== RESULTS ===== */
+    #results { background: var(--gray-light); }
+    .result-hero {
+      background: var(--white); border-radius: 18px; padding: 52px;
+      text-align: center; margin-bottom: 44px;
+      border-top: 6px solid var(--red);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+    .big-num {
+      font-size: 88px; font-weight: 900; color: var(--red); line-height: 1;
+      background: linear-gradient(135deg, var(--red), #ff2052);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .big-label { font-size: 20px; color: var(--navy); font-weight: 700; margin-top: 10px; }
+    .big-source { font-size: 13px; color: var(--gray-text); margin-top: 6px; }
+    .usecases { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+    .uc {
+      background: var(--white); border-radius: 14px; padding: 30px 26px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+      border-bottom: 4px solid transparent;
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+    }
+    .uc:hover { border-bottom-color: var(--red); transform: translateY(-4px); box-shadow: 0 12px 36px rgba(0,0,0,0.1); }
+    .uc-tag { display: inline-block; background: var(--red-light); color: var(--red); font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 20px; margin-bottom: 14px; }
+    .uc-title { font-size: 17px; font-weight: 800; color: var(--navy); margin-bottom: 14px; }
+    .uc-flow { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--gray-text); }
+    .uc-step { display: flex; align-items: flex-start; gap: 8px; }
+    .uc-arrow { color: var(--red); font-weight: 900; flex-shrink: 0; margin-top: 1px; }
+
+    /* ===== SCENARIO ===== */
+    #scenario { background: var(--white); }
+    .scenarios { display: flex; flex-direction: column; gap: 18px; }
+    .sc {
+      display: grid; grid-template-columns: 200px 1fr;
+      border-radius: 14px; overflow: hidden; border: 1.5px solid var(--gray-mid);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .sc:hover { border-color: var(--red); box-shadow: 0 6px 24px rgba(200,0,47,0.1); }
+    .sc-trigger {
+      background: var(--navy); color: var(--white);
+      padding: 24px 20px; display: flex; flex-direction: column; justify-content: center;
+    }
+    .sc-trigger-lbl { font-size: 10px; color: rgba(255,255,255,0.45); font-weight: 700; letter-spacing: 2px; margin-bottom: 8px; }
+    .sc-trigger-txt { font-size: 14px; font-weight: 700; }
+    .sc-body { padding: 22px 28px; display: flex; align-items: center; gap: 0; background: var(--white); }
+    .sc-action, .sc-result { flex: 1; }
+    .sc-lbl { font-size: 10px; font-weight: 800; letter-spacing: 2px; margin-bottom: 6px; }
+    .sc-action .sc-lbl { color: var(--red); }
+    .sc-result .sc-lbl { color: var(--navy); }
+    .sc-txt { font-size: 14px; font-weight: 600; }
+    .sc-arr { font-size: 22px; color: var(--red); margin: 0 22px; flex-shrink: 0; }
+
+    /* ===== COMPARISON TABLE ===== */
+    #comparison { background: var(--gray-light); }
+    table.cmp {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    table.cmp thead tr { background: var(--navy); color: var(--white); }
+    table.cmp thead th { padding: 18px 20px; font-size: 14px; font-weight: 700; text-align: center; }
+    table.cmp thead th:first-child { text-align: left; }
+    table.cmp thead th.hl { background: var(--red); }
+    table.cmp tbody tr { background: var(--white); transition: background 0.2s; }
+    table.cmp tbody tr:hover { background: #fef9fa; }
+    table.cmp tbody tr:nth-child(even) { background: #fafafa; }
+    table.cmp tbody tr:nth-child(even):hover { background: #fef9fa; }
+    table.cmp tbody td { padding: 16px 20px; font-size: 14px; text-align: center; border-bottom: 1px solid var(--gray-mid); }
+    table.cmp tbody td:first-child { text-align: left; font-weight: 600; color: var(--navy); }
+    table.cmp tbody td.hl { background: #fff5f7; }
+    .chk { color: var(--red); font-weight: 900; font-size: 17px; }
+    .crs { color: #bbb; }
+    .tri { color: #f09000; }
+
+    /* ===== STEPS ===== */
+    #steps { background: var(--white); }
+    .steps-wrap { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; position: relative; }
+    .steps-wrap::before {
+      content: ''; position: absolute;
+      top: 44px; left: 12.5%; right: 12.5%;
+      height: 2px; background: linear-gradient(90deg, var(--red), rgba(200,0,47,0.2));
+    }
+    .step { text-align: center; padding: 0 20px; }
+    .step-circle {
+      width: 88px; height: 88px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--red), var(--red-dark));
+      color: var(--white); font-size: 28px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 22px; position: relative; z-index: 1;
+      box-shadow: 0 6px 24px rgba(200,0,47,0.35);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .step:hover .step-circle { transform: scale(1.08); box-shadow: 0 10px 32px rgba(200,0,47,0.45); }
+    .step-title { font-size: 16px; font-weight: 800; color: var(--navy); margin-bottom: 10px; }
+    .step-desc { font-size: 13px; color: var(--gray-text); line-height: 1.7; }
+    .step-dur { display: inline-block; background: var(--red-light); color: var(--red); font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 20px; margin-top: 10px; }
+    .steps-note {
+      margin-top: 52px; padding: 26px 36px; background: var(--gray-light);
+      border-radius: 12px; text-align: center; font-size: 15px; color: var(--gray-text);
+      border-left: 4px solid var(--red);
+      text-align: left;
+    }
+    .steps-note strong { color: var(--navy); }
+
+    /* ===== FAQ ===== */
+    #faq { background: var(--gray-light); }
+    .faqs { display: flex; flex-direction: column; gap: 12px; }
+    .faq-item {
+      background: var(--white); border-radius: 12px;
+      border: 1.5px solid var(--gray-mid); overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .faq-item:hover { border-color: rgba(200,0,47,0.3); }
+    .faq-q {
+      padding: 22px 28px; font-size: 15px; font-weight: 700; color: var(--navy);
+      display: flex; align-items: flex-start; gap: 14px; cursor: pointer;
+      user-select: none;
+    }
+    .faq-q-ic {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--red);
+      color: var(--white); font-size: 13px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .faq-q-text { flex: 1; }
+    .faq-toggle { color: var(--red); font-size: 20px; font-weight: 900; flex-shrink: 0; transition: transform 0.3s; }
+    .faq-item.open .faq-toggle { transform: rotate(45deg); }
+    .faq-a {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.4s var(--ease), padding 0.4s;
+      font-size: 14px; color: var(--gray-text); line-height: 1.8;
+      padding: 0 28px 0 70px;
+    }
+    .faq-item.open .faq-a { max-height: 200px; padding: 0 28px 22px 70px; }
+
+    /* ===== CONTACT SECTION ===== */
+    #contact {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dark) 100%);
+      padding: 96px 48px;
+      position: relative; overflow: hidden;
+    }
+    #contact::before {
+      content: ''; position: absolute;
+      top: -100px; right: -100px;
+      width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(200,0,47,0.15), transparent 70%);
+    }
+    .contact-inner { max-width: 1080px; margin: 0 auto; position: relative; z-index: 1; }
+    .contact-header { text-align: center; margin-bottom: 64px; color: var(--white); }
+    .contact-header .sec-label { color: #ff8099; }
+    .contact-header h2 { font-size: 38px; font-weight: 900; margin-bottom: 14px; }
+    .contact-header h2 span { color: var(--red); }
+    .contact-header p { font-size: 16px; color: rgba(255,255,255,0.7); }
+
+    /* Progressive Tabs */
+    .form-tabs {
+      display: flex; gap: 0; background: rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 6px; margin-bottom: 40px;
+      max-width: 520px; margin-left: auto; margin-right: auto;
+    }
+    .form-tab {
+      flex: 1; padding: 14px 24px; border-radius: 8px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      color: rgba(255,255,255,0.55); background: transparent;
+      border: none; font-family: var(--font); text-align: center;
+      transition: all 0.3s;
+    }
+    .form-tab.active {
+      background: var(--white); color: var(--navy);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+
+    .form-panels { position: relative; }
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+
+    /* Progressive Form */
+    .prog-form {
+      background: var(--white); border-radius: 20px;
+      padding: 48px; max-width: 720px; margin: 0 auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .prog-steps { display: flex; align-items: center; margin-bottom: 40px; gap: 0; }
+    .prog-step {
+      flex: 1; display: flex; flex-direction: column; align-items: center; position: relative;
+    }
+    .prog-step:not(:last-child)::after {
+      content: ''; position: absolute;
+      top: 18px; left: 50%; right: -50%;
+      height: 2px; background: var(--gray-mid); z-index: 0;
+      transition: background 0.4s;
+    }
+    .prog-step.done:not(:last-child)::after { background: var(--red); }
+    .prog-step-num {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 2px solid var(--gray-mid); background: var(--white);
+      color: var(--gray-text); font-size: 14px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1; transition: all 0.4s;
+      margin-bottom: 8px;
+    }
+    .prog-step.active .prog-step-num { border-color: var(--red); background: var(--red); color: var(--white); box-shadow: 0 4px 12px rgba(200,0,47,0.3); }
+    .prog-step.done .prog-step-num { border-color: var(--red); background: var(--red); color: var(--white); }
+    .prog-step.done .prog-step-num::after { content: '✓'; }
+    .prog-step.done .prog-step-num span { display: none; }
+    .prog-step-lbl { font-size: 11px; font-weight: 600; color: var(--gray-text); transition: color 0.3s; }
+    .prog-step.active .prog-step-lbl { color: var(--red); font-weight: 700; }
+    .prog-step.done .prog-step-lbl { color: var(--red); }
+
+    .form-step { display: none; }
+    .form-step.active { display: block; animation: fadeInUp 0.4s var(--ease); }
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+
+    .step-title-sm { font-size: 20px; font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+    .step-desc-sm { font-size: 14px; color: var(--gray-text); margin-bottom: 28px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+    .form-group label .req { color: var(--red); margin-left: 4px; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%; padding: 12px 16px;
+      border: 1.5px solid var(--gray-mid); border-radius: 8px;
+      font-size: 15px; font-family: var(--font); color: #333;
+      background: var(--white);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(200,0,47,0.1);
+    }
+    .form-group textarea { resize: vertical; min-height: 100px; }
+    .form-group select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='2' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; padding-right: 40px; }
+
+    .form-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 32px; }
+    .btn-back {
+      background: none; border: 1.5px solid var(--gray-mid); color: var(--gray-text);
+      padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600;
+      cursor: pointer; font-family: var(--font); transition: all 0.2s;
+    }
+    .btn-back:hover { border-color: var(--navy); color: var(--navy); }
+    .btn-next {
+      background: var(--red); color: var(--white);
+      padding: 14px 36px; border-radius: 6px; font-size: 15px; font-weight: 700;
+      border: none; cursor: pointer; font-family: var(--font);
+      box-shadow: 0 4px 16px rgba(200,0,47,0.35);
+      transition: all 0.2s;
+    }
+    .btn-next:hover { background: var(--red-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(200,0,47,0.4); }
+    .btn-submit {
+      background: var(--red); color: var(--white);
+      padding: 18px 52px; border-radius: 6px; font-size: 17px; font-weight: 800;
+      border: none; cursor: pointer; font-family: var(--font); width: 100%;
+      box-shadow: 0 6px 24px rgba(200,0,47,0.4);
+      transition: all 0.2s;
+    }
+    .btn-submit:hover { background: var(--red-dark); transform: translateY(-2px); }
+
+    /* チェックボックス */
+    .check-options { display: flex; flex-wrap: wrap; gap: 10px; }
+    .check-option {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; border: 1.5px solid var(--gray-mid); border-radius: 8px;
+      cursor: pointer; font-size: 14px; font-weight: 600; color: #444;
+      transition: all 0.2s; user-select: none;
+    }
+    .check-option input { display: none; }
+    .check-option:has(input:checked) { border-color: var(--red); background: var(--red-light); color: var(--red); }
+    .check-box {
+      width: 18px; height: 18px; border: 2px solid var(--gray-mid); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all 0.2s;
+    }
+    .check-option:has(input:checked) .check-box { background: var(--red); border-color: var(--red); color: var(--white); }
+
+    /* 完了画面 */
+    .form-complete {
+      display: none; text-align: center; padding: 20px 0;
+      animation: fadeInUp 0.5s var(--ease);
+    }
+    .form-complete.active { display: block; }
+    .complete-icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--red), var(--red-dark));
+      color: var(--white); font-size: 36px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+      box-shadow: 0 8px 32px rgba(200,0,47,0.35);
+    }
+    .complete-title { font-size: 24px; font-weight: 900; color: var(--navy); margin-bottom: 12px; }
+    .complete-desc { font-size: 15px; color: var(--gray-text); line-height: 1.8; }
+
+    /* ===== FOOTER ===== */
+    footer {
+      background: #0a0e1a; color: rgba(255,255,255,0.35);
+      padding: 40px 48px; text-align: center; font-size: 12px;
+    }
+    footer a { color: rgba(255,255,255,0.35); text-decoration: none; }
+    footer a:hover { color: rgba(255,255,255,0.6); }
+
+    /* ===== FLOATING CTA ===== */
+    #floating-cta {
+      position: fixed; bottom: 28px; right: 28px;
+      background: var(--red); color: var(--white);
+      padding: 14px 24px; border-radius: 50px;
+      font-size: 14px; font-weight: 700; text-decoration: none;
+      box-shadow: 0 8px 28px rgba(200,0,47,0.45);
+      z-index: 500; display: flex; align-items: center; gap: 8px;
+      transform: translateY(100px); opacity: 0;
+      transition: transform 0.4s var(--ease), opacity 0.4s, background 0.2s;
+    }
+    #floating-cta.visible { transform: translateY(0); opacity: 1; }
+    #floating-cta:hover { background: var(--red-dark); transform: translateY(-3px); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      header { padding: 0 20px; }
+      nav a:not(.nav-cta):not(.nav-doc) { display: none; }
+      #hero { grid-template-columns: 1fr; padding: 60px 20px 80px; }
+      .hero-stats { display: none; }
+      h1.hero-title { font-size: 32px; }
+      section { padding: 64px 20px; }
+      h2.sec-title { font-size: 26px; }
+      .compare-wrap { grid-template-columns: 1fr; gap: 16px; }
+      .vs-circle { display: none; }
+      .features, .usecases { grid-template-columns: 1fr; }
+      .steps-wrap { grid-template-columns: 1fr 1fr; gap: 32px; }
+      .steps-wrap::before { display: none; }
+      .sc { grid-template-columns: 1fr; }
+      .sc-body { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .form-row { grid-template-columns: 1fr; }
+      .prog-form { padding: 28px 20px; }
+      .contact-header h2 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- PROGRESS BAR -->
+<div id="progress-bar"></div>
+
+<!-- HEADER -->
+<header id="header">
+  <a class="logo" href="#">DM<span>Connect</span></a>
+  <nav>
+    <a href="#problem">課題</a>
+    <a href="#solution">機能</a>
+    <a href="#results">実績</a>
+    <a href="#steps">導入</a>
+    <a href="#faq">FAQ</a>
+    <a href="#contact" class="nav-doc">資料請求</a>
+    <a href="#contact" class="nav-cta">無料相談</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-content">
+    <div class="hero-tag">トリガー型DM自動化サービス</div>
+    <h1 class="hero-title reveal">
+      メールは届かない。<br>でも、<em>DMは届く。</em>
+    </h1>
+    <p class="hero-sub reveal reveal-delay-1">
+      解約・休眠・未購入──最も重要な顧客に、<br>
+      最適なタイミングで自動的にDMを届ける。<br>
+      エンジニア不要・最短1営業日で運用開始。
+    </p>
+    <div class="hero-cta-group reveal reveal-delay-2">
+      <a href="#contact" class="btn btn-red">まず無料相談を予約する</a>
+      <a href="#contact" class="btn btn-outline-white">資料請求（無料）</a>
+    </div>
+    <p class="hero-note reveal reveal-delay-3">※ 強引な営業は一切ありません</p>
+  </div>
+  <div class="hero-stats">
+    <div class="stat-card reveal from-right reveal-delay-1">
+      <div class="stat-icon">📬</div>
+      <div>
+        <div class="stat-num">年間20万通超</div>
+        <div class="stat-label">自動DM送付実績（ベースフード社）</div>
+      </div>
+    </div>
+    <div class="stat-card reveal from-right reveal-delay-2">
+      <div class="stat-icon">⚡</div>
+      <div>
+        <div class="stat-num">最短1営業日</div>
+        <div class="stat-label">トリガー検知 → 印刷 → 配送まで完結</div>
+      </div>
+    </div>
+    <div class="stat-card reveal from-right reveal-delay-3">
+      <div class="stat-icon">🔗</div>
+      <div>
+        <div class="stat-num">ノーコード連携</div>
+        <div class="stat-label">SHANON・エンバーポイント経由で設定可能</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="inner">
+    <div class="sec-label reveal">PROBLEM</div>
+    <h2 class="sec-title reveal">デジタルだけでは、<br>もう顧客は動かない。</h2>
+    <p class="sec-desc reveal">開封されないメール、スルーされるプッシュ。デジタル疲れが進む今、物理的なDMが最後の差別化手段になっています。</p>
+    <div class="compare-wrap reveal">
+      <div class="comp-col bad">
+        <div class="comp-head">📧 メール・デジタル施策 <span class="tag tag-gray">現状</span></div>
+        <div class="comp-item"><span class="ic">❌</span><div>平均開封率 <strong>約20%</strong>（読まれない80%）</div></div>
+        <div class="comp-item"><span class="ic">❌</span><div>プッシュ通知は<strong>ほぼ無視</strong>される</div></div>
+        <div class="comp-item"><span class="ic">❌</span><div>広告クリック率は<strong>年々低下</strong></div></div>
+        <div class="comp-item"><span class="ic">❌</span><div>競合と同じ手法で<strong>差別化できない</strong></div></div>
+      </div>
+      <div class="vs-circle">VS</div>
+      <div class="comp-col good">
+        <div class="comp-head">📮 DMConnect（DM自動化） <span class="tag tag-red">改善策</span></div>
+        <div class="comp-item"><span class="ic">✅</span><div>DM平均開封率 <strong>70〜80%</strong>（メールの4倍）</div></div>
+        <div class="comp-item"><span class="ic">✅</span><div>物理的な存在感が<strong>行動を促す</strong></div></div>
+        <div class="comp-item"><span class="ic">✅</span><div>競合他社が少なく<strong>目立ちやすい</strong></div></div>
+        <div class="comp-item"><span class="ic">✅</span><div>顧客行動連動の<strong>自動送付</strong>で工数ゼロ</div></div>
+        <div class="comp-num">70〜80%</div>
+        <div class="comp-num-label">DM平均開封率（業界平均）</div>
+      </div>
+    </div>
+    <div class="conclusion-bar reveal">「デジタル疲れの時代、<span>DM</span>は最後の差別化手段になっている。」</div>
+  </div>
+</section>
+
+<!-- SOLUTION -->
+<section id="solution">
+  <div class="inner">
+    <div class="sec-label reveal">SOLUTION</div>
+    <h2 class="sec-title reveal">DMConnectとは</h2>
+    <div class="solution-def reveal">
+      顧客の行動を検知して、<em>最適なタイミングに自動でDMを送る</em>サービス。<br>
+      シナリオ設計から印刷・配送まで、すべてワンストップで完結します。
+    </div>
+    <div class="features">
+      <div class="feat reveal reveal-delay-1">
+        <div class="feat-num">①</div>
+        <div class="feat-title">トリガー検知</div>
+        <div class="feat-desc">解約・休眠・誕生日・購買など顧客の行動を自動検知。定義したルールに従い即時にDMを発動します。</div>
+      </div>
+      <div class="feat reveal reveal-delay-2">
+        <div class="feat-num">②</div>
+        <div class="feat-title">自動印刷〜配送</div>
+        <div class="feat-desc">最短1営業日で印刷・封入・発送まで完結。担当者の手作業は一切不要です。</div>
+      </div>
+      <div class="feat reveal reveal-delay-3">
+        <div class="feat-num">③</div>
+        <div class="feat-title">バリアブル印刷</div>
+        <div class="feat-desc">1通ずつ名前・内容・オファーを変えるパーソナライズ。大量送付でも個別対応の温かみを実現します。</div>
+      </div>
+    </div>
+    <div class="badges reveal">
+      <div class="badge-item"><span class="badge-dot"></span>SHANON</div>
+      <div class="badge-item"><span class="badge-dot"></span>エンバーポイント</div>
+      <div class="badge-item"><span class="badge-dot"></span>その他MA（API連携）</div>
+      <span style="font-size:13px;color:var(--gray-text);margin-left:4px;">エンジニア不要・ノーコード対応</span>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results">
+  <div class="inner">
+    <div class="sec-label reveal">RESULTS</div>
+    <h2 class="sec-title reveal">導入企業の実績</h2>
+    <div class="result-hero reveal scale-in">
+      <div class="big-num">200,000+</div>
+      <div class="big-label">年間送付通数（自動DM）</div>
+      <div class="big-source">※ ベースフード社との取組実績</div>
+    </div>
+    <div class="usecases">
+      <div class="uc reveal reveal-delay-1">
+        <div class="uc-tag">EC / D2C</div>
+        <div class="uc-title">ウィンバックDM</div>
+        <div class="uc-flow">
+          <div class="uc-step">🔔 <span>解約手続き検知（24時間以内）</span></div>
+          <div class="uc-step"><span class="uc-arrow">↓</span> <span>復帰オファー付きDM自動送付</span></div>
+          <div class="uc-step">📈 <span>解約後復帰率の改善</span></div>
+        </div>
+      </div>
+      <div class="uc reveal reveal-delay-2">
+        <div class="uc-tag">サブスク / 配食</div>
+        <div class="uc-title">継続促進・誕生日DM</div>
+        <div class="uc-flow">
+          <div class="uc-step">🔔 <span>最終購入から60日 or 誕生日1週前</span></div>
+          <div class="uc-step"><span class="uc-arrow">↓</span> <span>名前・特典入りパーソナライズDM</span></div>
+          <div class="uc-step">📈 <span>LTV向上・再購入率アップ</span></div>
+        </div>
+      </div>
+      <div class="uc reveal reveal-delay-3">
+        <div class="uc-tag">BtoB</div>
+        <div class="uc-title">商談後フォローDM</div>
+        <div class="uc-flow">
+          <div class="uc-step">🔔 <span>展示会名刺取得・商談完了</span></div>
+          <div class="uc-step"><span class="uc-arrow">↓</span> <span>お礼状＋提案資料同封DM</span></div>
+          <div class="uc-step">📈 <span>商談化率・受注率の向上</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCENARIO -->
+<section id="scenario">
+  <div class="inner">
+    <div class="sec-label reveal">SCENARIO</div>
+    <h2 class="sec-title reveal">自動化シナリオの例</h2>
+    <p class="sec-desc reveal">顧客行動をトリガーに、DMが自動で動き出します。</p>
+    <div class="scenarios">
+      <div class="sc reveal">
+        <div class="sc-trigger"><div class="sc-trigger-lbl">TRIGGER</div><div class="sc-trigger-txt">解約完了（24時間以内）</div></div>
+        <div class="sc-body">
+          <div class="sc-action"><div class="sc-lbl">ACTION</div><div class="sc-txt">ウィンバックオファー付きDM自動送付</div></div>
+          <div class="sc-arr">→</div>
+          <div class="sc-result"><div class="sc-lbl">RESULT</div><div class="sc-txt">復帰率改善</div></div>
+        </div>
+      </div>
+      <div class="sc reveal reveal-delay-1">
+        <div class="sc-trigger"><div class="sc-trigger-lbl">TRIGGER</div><div class="sc-trigger-txt">最終購入から60日経過</div></div>
+        <div class="sc-body">
+          <div class="sc-action"><div class="sc-lbl">ACTION</div><div class="sc-txt">休眠顧客復活クーポンDM</div></div>
+          <div class="sc-arr">→</div>
+          <div class="sc-result"><div class="sc-lbl">RESULT</div><div class="sc-txt">再購入率向上</div></div>
+        </div>
+      </div>
+      <div class="sc reveal reveal-delay-2">
+        <div class="sc-trigger"><div class="sc-trigger-lbl">TRIGGER</div><div class="sc-trigger-txt">誕生日1週間前</div></div>
+        <div class="sc-body">
+          <div class="sc-action"><div class="sc-lbl">ACTION</div><div class="sc-txt">名前入りバースデーDM＋特典</div></div>
+          <div class="sc-arr">→</div>
+          <div class="sc-result"><div class="sc-lbl">RESULT</div><div class="sc-txt">購買率・LTV向上</div></div>
+        </div>
+      </div>
+      <div class="sc reveal reveal-delay-3">
+        <div class="sc-trigger"><div class="sc-trigger-lbl">TRIGGER</div><div class="sc-trigger-txt">展示会名刺取得後</div></div>
+        <div class="sc-body">
+          <div class="sc-action"><div class="sc-lbl">ACTION</div><div class="sc-txt">お礼状＋商談促進DM（翌営業日）</div></div>
+          <div class="sc-arr">→</div>
+          <div class="sc-result"><div class="sc-lbl">RESULT</div><div class="sc-txt">商談化率アップ</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="comparison">
+  <div class="inner">
+    <div class="sec-label reveal">COMPARISON</div>
+    <h2 class="sec-title reveal">なぜDMConnectか</h2>
+    <p class="sec-desc reveal">価格競争ではなく、シナリオ設計と自動化で差をつけます。</p>
+    <div class="reveal">
+    <table class="cmp">
+      <thead>
+        <tr>
+          <th style="width:200px;text-align:left;">評価項目</th>
+          <th class="hl">DMConnect</th>
+          <th>従来の印刷会社</th>
+          <th>メール配信</th>
+          <th>自社対応</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>トリガー自動化</td><td class="hl"><span class="chk">◎</span></td><td><span class="crs">✕</span></td><td><span class="tri">△</span></td><td><span class="crs">✕</span></td></tr>
+        <tr><td>パーソナライズ印刷</td><td class="hl"><span class="chk">◎</span></td><td><span class="tri">△</span></td><td><span class="tri">△</span></td><td><span class="crs">✕</span></td></tr>
+        <tr><td>最短1営業日配送</td><td class="hl"><span class="chk">◎</span></td><td><span class="crs">✕</span></td><td><span class="chk">◎</span></td><td><span class="tri">△</span></td></tr>
+        <tr><td>MAツール連携（ノーコード）</td><td class="hl"><span class="chk">◎</span></td><td><span class="crs">✕</span></td><td><span class="chk">◎</span></td><td><span class="crs">✕</span></td></tr>
+        <tr><td>開封率</td><td class="hl"><span class="chk">70〜80%</span></td><td><span class="chk">70〜80%</span></td><td><span class="crs">〜20%</span></td><td><span class="chk">70〜80%</span></td></tr>
+        <tr><td>担当者工数</td><td class="hl"><span class="chk">ほぼゼロ</span></td><td><span class="crs">大きい</span></td><td><span class="tri">中程度</span></td><td><span class="crs">非常に大</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section id="steps">
+  <div class="inner">
+    <div class="sec-label reveal">HOW TO START</div>
+    <h2 class="sec-title reveal">最短2週間でスタート</h2>
+    <p class="sec-desc reveal">エンジニア不要・ノーコードで設定可能。シンプルな4ステップで本番運用まで進めます。</p>
+    <div class="steps-wrap">
+      <div class="step reveal reveal-delay-1">
+        <div class="step-circle">1</div>
+        <div class="step-title">ヒアリング・<br>シナリオ設計</div>
+        <div class="step-desc">課題・目標をお聞きし、最適なDMシナリオを設計します</div>
+        <div class="step-dur">〜1週間</div>
+      </div>
+      <div class="step reveal reveal-delay-2">
+        <div class="step-circle">2</div>
+        <div class="step-title">システム<br>連携設定</div>
+        <div class="step-desc">MAツールとのAPI接続またはSHANON経由で設定</div>
+        <div class="step-dur">〜3日</div>
+      </div>
+      <div class="step reveal reveal-delay-3">
+        <div class="step-circle">3</div>
+        <div class="step-title">テスト送付・<br>効果確認</div>
+        <div class="step-desc">テスト送付で動作確認。QRコードで効果測定も可能</div>
+        <div class="step-dur">〜3日</div>
+      </div>
+      <div class="step reveal reveal-delay-4">
+        <div class="step-circle">4</div>
+        <div class="step-title">本番運用<br>スタート</div>
+        <div class="step-desc">承認後、トリガー検知から全自動で運用開始</div>
+        <div class="step-dur">運用開始🎉</div>
+      </div>
+    </div>
+    <div class="steps-note reveal">
+      💡 <strong>1通から対応可能。</strong>まずは小さく試して、効果を確認してから拡大できます。料金は初期費用＋送付単価（印刷・配送込み）のシンプルな体系です。
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="inner">
+    <div class="sec-label reveal">FAQ</div>
+    <h2 class="sec-title reveal">よくある質問</h2>
+    <div class="faqs reveal">
+      <div class="faq-item">
+        <div class="faq-q"><div class="faq-q-ic">Q</div><div class="faq-q-text">既存のMAツールと連携できますか？</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a">SHANONをはじめ、主要なMAツールと連携対応しています。その他のツールもAPI連携により対応可能なケースが多いため、まずはご相談ください。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><div class="faq-q-ic">Q</div><div class="faq-q-text">最小発送数はありますか？</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a">1通からご対応可能です。「まずは少量でテストしたい」というご要望にも柔軟にお応えします。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><div class="faq-q-ic">Q</div><div class="faq-q-text">DM原稿のデザインは自分たちで作れますか？</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a">テンプレートをご提供しています。また、デザイン制作のご支援も承っていますので、ご相談ください。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><div class="faq-q-ic">Q</div><div class="faq-q-text">効果測定はできますか？</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a">QRコードを活用したトラッキングや応答管理システムとの連携により、DM経由の反応率・コンバージョンを計測可能です。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><div class="faq-q-ic">Q</div><div class="faq-q-text">注文してからどのくらいで届きますか？</div><div class="faq-toggle">+</div></div>
+        <div class="faq-a">トリガー発動後、最短1営業日で印刷〜発送が完了します。お届けまでの日数は配送エリアによって異なります。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT (資料請求 + お問い合わせ) -->
+<section id="contact">
+  <div class="contact-inner">
+    <div class="contact-header reveal">
+      <div class="sec-label">CONTACT</div>
+      <h2>顧客との接点を、<span>もう1本</span>増やす。</h2>
+      <p>まずはお気軽にご相談ください。30分の無料相談で御社に合ったシナリオをご提案します。</p>
+    </div>
+
+    <!-- タブ切り替え -->
+    <div class="form-tabs reveal">
+      <button class="form-tab active" onclick="switchTab('inquiry')">💬 無料相談・お問い合わせ</button>
+      <button class="form-tab" onclick="switchTab('document')">📄 資料請求（無料）</button>
+    </div>
+
+    <!-- お問い合わせフォーム -->
+    <div class="form-panel active" id="panel-inquiry">
+      <div class="prog-form">
+        <!-- プログレスステップ -->
+        <div class="prog-steps" id="inquiry-steps">
+          <div class="prog-step active" id="inquiry-s1">
+            <div class="prog-step-num"><span>1</span></div>
+            <div class="prog-step-lbl">基本情報</div>
+          </div>
+          <div class="prog-step" id="inquiry-s2">
+            <div class="prog-step-num"><span>2</span></div>
+            <div class="prog-step-lbl">課題・目的</div>
+          </div>
+          <div class="prog-step" id="inquiry-s3">
+            <div class="prog-step-num"><span>3</span></div>
+            <div class="prog-step-lbl">確認・送信</div>
+          </div>
+        </div>
+
+        <!-- STEP 1 -->
+        <div class="form-step active" id="inquiry-step1">
+          <div class="step-title-sm">お客様の基本情報</div>
+          <div class="step-desc-sm">まず基本情報をご入力ください。</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>お名前<span class="req">*</span></label>
+              <input type="text" placeholder="山田 太郎" id="i-name">
+            </div>
+            <div class="form-group">
+              <label>会社名<span class="req">*</span></label>
+              <input type="text" placeholder="株式会社〇〇" id="i-company">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>メールアドレス<span class="req">*</span></label>
+              <input type="email" placeholder="yamada@company.co.jp" id="i-email">
+            </div>
+            <div class="form-group">
+              <label>電話番号</label>
+              <input type="tel" placeholder="03-0000-0000" id="i-tel">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>業種<span class="req">*</span></label>
+            <select id="i-industry">
+              <option value="">選択してください</option>
+              <option>EC / D2C</option>
+              <option>サブスクリプション / 配食</option>
+              <option>保険 / 金融</option>
+              <option>BtoB製造・サービス</option>
+              <option>小売</option>
+              <option>その他</option>
+            </select>
+          </div>
+          <div class="form-nav">
+            <span></span>
+            <button class="btn-next" onclick="nextStep('inquiry', 1)">次へ →</button>
+          </div>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="form-step" id="inquiry-step2">
+          <div class="step-title-sm">課題・ご要望</div>
+          <div class="step-desc-sm">現状の課題とご興味のある機能を教えてください。</div>
+          <div class="form-group">
+            <label>現在お困りの課題（複数選択可）</label>
+            <div class="check-options">
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>解約・離脱の防止</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>休眠顧客の復活</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>LTV向上・継続促進</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>新規リードの育成</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>BtoB商談促進</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>マーケ工数の削減</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>月間の想定DM送付数</label>
+            <select id="i-volume">
+              <option value="">選択してください</option>
+              <option>100通未満（小規模テスト）</option>
+              <option>100〜1,000通</option>
+              <option>1,000〜10,000通</option>
+              <option>10,000通以上</option>
+              <option>未定・相談したい</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>ご質問・ご要望</label>
+            <textarea placeholder="現状の施策や課題、ご不明な点などをご記入ください。" id="i-message"></textarea>
+          </div>
+          <div class="form-nav">
+            <button class="btn-back" onclick="prevStep('inquiry', 2)">← 戻る</button>
+            <button class="btn-next" onclick="nextStep('inquiry', 2)">内容を確認する →</button>
+          </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="form-step" id="inquiry-step3">
+          <div class="step-title-sm">送信内容の確認</div>
+          <div class="step-desc-sm">以下の内容で送信します。よろしければ「送信する」をクリックしてください。</div>
+          <div id="i-confirm" style="background:var(--gray-light);border-radius:10px;padding:24px;margin-bottom:24px;font-size:14px;line-height:2;color:var(--navy);"></div>
+          <div class="form-group">
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-weight:normal;font-size:13px;color:var(--gray-text);">
+              <input type="checkbox" id="i-privacy" style="margin-top:3px;flex-shrink:0;">
+              <span><a href="#" style="color:var(--red);">プライバシーポリシー</a>に同意して送信します。</span>
+            </label>
+          </div>
+          <div class="form-nav">
+            <button class="btn-back" onclick="prevStep('inquiry', 3)">← 戻る</button>
+            <button class="btn-submit" onclick="submitForm('inquiry')">送信する 📨</button>
+          </div>
+        </div>
+
+        <!-- 完了 -->
+        <div class="form-complete" id="inquiry-complete">
+          <div class="complete-icon">✓</div>
+          <div class="complete-title">送信が完了しました！</div>
+          <div class="complete-desc">お問い合わせありがとうございます。<br>担当者より2営業日以内にご連絡いたします。<br>まずはお気軽にお待ちください。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 資料請求フォーム -->
+    <div class="form-panel" id="panel-document">
+      <div class="prog-form">
+        <div class="prog-steps" id="doc-steps">
+          <div class="prog-step active" id="doc-s1">
+            <div class="prog-step-num"><span>1</span></div>
+            <div class="prog-step-lbl">送付先情報</div>
+          </div>
+          <div class="prog-step" id="doc-s2">
+            <div class="prog-step-num"><span>2</span></div>
+            <div class="prog-step-lbl">興味・関心</div>
+          </div>
+          <div class="prog-step" id="doc-s3">
+            <div class="prog-step-num"><span>3</span></div>
+            <div class="prog-step-lbl">確認・送信</div>
+          </div>
+        </div>
+
+        <!-- STEP 1 -->
+        <div class="form-step active" id="doc-step1">
+          <div class="step-title-sm">資料のお送り先</div>
+          <div class="step-desc-sm">DMConnect紹介資料（PDF）を無料でお送りします。</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>お名前<span class="req">*</span></label>
+              <input type="text" placeholder="山田 太郎" id="d-name">
+            </div>
+            <div class="form-group">
+              <label>会社名<span class="req">*</span></label>
+              <input type="text" placeholder="株式会社〇〇" id="d-company">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>メールアドレス<span class="req">*</span></label>
+            <input type="email" placeholder="yamada@company.co.jp" id="d-email">
+          </div>
+          <div class="form-group">
+            <label>業種</label>
+            <select id="d-industry">
+              <option value="">選択してください</option>
+              <option>EC / D2C</option>
+              <option>サブスクリプション / 配食</option>
+              <option>保険 / 金融</option>
+              <option>BtoB製造・サービス</option>
+              <option>小売</option>
+              <option>その他</option>
+            </select>
+          </div>
+          <div class="form-nav">
+            <span></span>
+            <button class="btn-next" onclick="nextStep('doc', 1)">次へ →</button>
+          </div>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="form-step" id="doc-step2">
+          <div class="step-title-sm">ご興味・ご関心</div>
+          <div class="step-desc-sm">お送りする資料のカスタマイズに活用します。</div>
+          <div class="form-group">
+            <label>ご興味のある機能・活用場面（複数選択可）</label>
+            <div class="check-options">
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>ウィンバックDM</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>誕生日DM</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>休眠顧客復活</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>BtoB商談促進</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>MAとの連携方法</label>
+              <label class="check-option"><input type="checkbox"><div class="check-box">✓</div>料金・プラン詳細</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>導入検討の時期</label>
+            <select id="d-timing">
+              <option value="">選択してください</option>
+              <option>すぐにでも（1ヶ月以内）</option>
+              <option>3ヶ月以内</option>
+              <option>半年以内</option>
+              <option>情報収集段階</option>
+            </select>
+          </div>
+          <div class="form-nav">
+            <button class="btn-back" onclick="prevStep('doc', 2)">← 戻る</button>
+            <button class="btn-next" onclick="nextStep('doc', 2)">内容を確認する →</button>
+          </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="form-step" id="doc-step3">
+          <div class="step-title-sm">送信内容の確認</div>
+          <div class="step-desc-sm">以下の内容で資料をお送りします。</div>
+          <div id="d-confirm" style="background:var(--gray-light);border-radius:10px;padding:24px;margin-bottom:24px;font-size:14px;line-height:2;color:var(--navy);"></div>
+          <div class="form-group">
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-weight:normal;font-size:13px;color:var(--gray-text);">
+              <input type="checkbox" id="d-privacy" style="margin-top:3px;flex-shrink:0;">
+              <span><a href="#" style="color:var(--red);">プライバシーポリシー</a>に同意して送信します。</span>
+            </label>
+          </div>
+          <div class="form-nav">
+            <button class="btn-back" onclick="prevStep('doc', 3)">← 戻る</button>
+            <button class="btn-submit" onclick="submitForm('doc')">資料を請求する 📄</button>
+          </div>
+        </div>
+
+        <!-- 完了 -->
+        <div class="form-complete" id="doc-complete">
+          <div class="complete-icon">📄</div>
+          <div class="complete-title">資料請求を受け付けました！</div>
+          <div class="complete-desc">ご登録いただいたメールアドレスに<br>資料PDFをお送りします（通常1営業日以内）。<br>ご不明な点はお気軽にお問い合わせください。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p style="margin-bottom:8px;">
+    <a href="#">プライバシーポリシー</a> &nbsp;|&nbsp;
+    <a href="#">会社概要</a> &nbsp;|&nbsp;
+    <a href="https://www.jp-md.co.jp/dm_connect/" target="_blank">公式サイト</a>
+  </p>
+  &copy; 2026 DMConnect / 日本郵便マーケティング株式会社 All Rights Reserved.
+</footer>
+
+<!-- FLOATING CTA -->
+<a href="#contact" id="floating-cta">📩 無料相談する</a>
+
+<script>
+  /* ===== SCROLL REVEAL ===== */
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  reveals.forEach(el => observer.observe(el));
+
+  /* ===== PROGRESS BAR ===== */
+  const bar = document.getElementById('progress-bar');
+  const header = document.getElementById('header');
+  const floatCta = document.getElementById('floating-cta');
+  window.addEventListener('scroll', () => {
+    const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+    bar.style.width = pct + '%';
+    header.classList.toggle('scrolled', window.scrollY > 50);
+    floatCta.classList.toggle('visible', window.scrollY > 400);
+  });
+
+  /* ===== FAQ ACCORDION ===== */
+  document.querySelectorAll('.faq-q').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.parentElement;
+      const wasOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!wasOpen) item.classList.add('open');
+    });
+  });
+
+  /* ===== TAB SWITCH ===== */
+  function switchTab(tab) {
+    document.querySelectorAll('.form-tab').forEach((t, i) => {
+      t.classList.toggle('active', (tab === 'inquiry' && i === 0) || (tab === 'document' && i === 1));
+    });
+    document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + (tab === 'inquiry' ? 'inquiry' : 'document')).classList.add('active');
+  }
+
+  /* ===== PROGRESSIVE FORM ===== */
+  function nextStep(form, step) {
+    // バリデーション（簡易）
+    if (form === 'inquiry' && step === 1) {
+      if (!document.getElementById('i-name').value || !document.getElementById('i-email').value || !document.getElementById('i-industry').value) {
+        alert('お名前・メールアドレス・業種は必須です。'); return;
+      }
+    }
+    if (form === 'doc' && step === 1) {
+      if (!document.getElementById('d-name').value || !document.getElementById('d-email').value) {
+        alert('お名前・メールアドレスは必須です。'); return;
+      }
+    }
+    if (step === 2) buildConfirm(form);
+    goStep(form, step, step + 1);
+  }
+
+  function prevStep(form, step) { goStep(form, step, step - 1); }
+
+  function goStep(form, from, to) {
+    document.getElementById(form === 'inquiry' ? 'inquiry' : 'doc' + '-step' + from)?.classList.remove('active');
+    document.getElementById((form === 'inquiry' ? 'inquiry' : 'doc') + '-step' + from).classList.remove('active');
+    document.getElementById((form === 'inquiry' ? 'inquiry' : 'doc') + '-step' + to).classList.add('active');
+    // ステップ更新
+    const prefix = form === 'inquiry' ? 'inquiry' : 'doc';
+    for (let i = 1; i <= 3; i++) {
+      const s = document.getElementById(prefix + '-s' + i);
+      s.classList.remove('active', 'done');
+      if (i < to) s.classList.add('done');
+      if (i === to) s.classList.add('active');
+    }
+  }
+
+  function buildConfirm(form) {
+    if (form === 'inquiry') {
+      document.getElementById('i-confirm').innerHTML =
+        '<strong>お名前：</strong>' + document.getElementById('i-name').value + '<br>' +
+        '<strong>会社名：</strong>' + document.getElementById('i-company').value + '<br>' +
+        '<strong>メール：</strong>' + document.getElementById('i-email').value + '<br>' +
+        '<strong>業種：</strong>' + document.getElementById('i-industry').value + '<br>' +
+        '<strong>送付数：</strong>' + (document.getElementById('i-volume').value || '未回答') + '<br>' +
+        '<strong>メッセージ：</strong>' + (document.getElementById('i-message').value || 'なし');
+    } else {
+      document.getElementById('d-confirm').innerHTML =
+        '<strong>お名前：</strong>' + document.getElementById('d-name').value + '<br>' +
+        '<strong>会社名：</strong>' + document.getElementById('d-company').value + '<br>' +
+        '<strong>メール：</strong>' + document.getElementById('d-email').value + '<br>' +
+        '<strong>業種：</strong>' + (document.getElementById('d-industry').value || '未回答') + '<br>' +
+        '<strong>検討時期：</strong>' + (document.getElementById('d-timing').value || '未回答');
+    }
+  }
+
+  function submitForm(form) {
+    const privacyId = form === 'inquiry' ? 'i-privacy' : 'd-privacy';
+    if (!document.getElementById(privacyId).checked) {
+      alert('プライバシーポリシーへの同意が必要です。'); return;
+    }
+    const prefix = form === 'inquiry' ? 'inquiry' : 'doc';
+    document.getElementById(prefix + '-step3').classList.remove('active');
+    document.getElementById(prefix + '-complete').classList.add('active');
+    document.getElementById(prefix + '-steps').style.opacity = '0.3';
+  }
+</script>
+</body>
+</html>
